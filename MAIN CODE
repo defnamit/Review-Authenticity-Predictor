@@ -1,0 +1,123 @@
+#reviews predictor
+
+import pandas as pd, numpy as np
+from collections import Counter
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.compose import make_column_transformer
+
+
+r=pd.read_csv("dataset.csv")
+
+#TRAINING THE DATA
+
+model=LogisticRegression()
+ss=StandardScaler()
+le=LabelEncoder()
+
+features=["review_text","rating","account_age_days","verified_purchase","review_length_words","all_caps_ratio","exclamation_count","repeated_phrases","profile_photo"]
+
+r["verified_purchase"]=r["verified_purchase"].map({"Yes":1, "No":0})
+r["profile_photo"]=r["profile_photo"].map({"Yes":1, "No":0})
+
+x=r[features]
+y=r["classification"].map({"Fake":0, "Suspicious":1, "Genuine":2})  #target
+
+preprocessor = make_column_transformer(
+    (TfidfVectorizer(), "review_text"),
+    (
+        StandardScaler(),
+        [
+            "rating",
+            "account_age_days",
+            "verified_purchase",
+            "review_length_words",
+            "all_caps_ratio",
+            "exclamation_count",
+            "repeated_phrases",
+            "profile_photo"
+        ]
+    )
+)
+
+pipeline = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", RandomForestClassifier())
+])
+
+pipeline.fit(x,y)
+
+#TAKING THE DATA INPUT
+
+review=str(input("PASTE THE REVIEW HERE: "))
+rate=int(input("TELL THE RATING: "))
+mapping = {"yes": 1, "no": 0}
+ver_pur = mapping.get(
+    input("IS THE PURCHASE VERIFIED: ").lower(),
+    -1
+)
+
+pfp = mapping.get(
+    input("IS THE PROFILE PICTURE VISIBLE: ").lower(),
+    -1
+)
+
+
+#TO CALCULATE (ACCOUNT AGE)
+arr=np.array(r["account_age_days"])
+account_age=arr.mean()
+
+
+#TO CALCULATE (WORD LENGTH)
+length=len(review.split())
+
+
+#TO CALCULATE (CAPS RATIO)
+letters = [c for c in review if c.isalpha()]
+
+ratio = (
+    sum(1 for c in letters if c.isupper())
+    / len(letters)
+    if len(letters) > 0 else 0)
+
+
+#TO CALCULATE (EXCLAMATION MARKS)
+exclamation_count=review.count("!")
+
+
+#TO CALCULATE (REPEATED PHRASES)
+a=review.lower().split()
+cntr=Counter(a)
+repeated = 1 if any(c >= 3 for c in cntr.values()) else 0
+
+#TO PREDICT THE OUTPUT
+
+new_review = pd.DataFrame({
+    "review_text": [review],
+    "rating": [rate],
+    "account_age_days": [account_age],
+    "verified_purchase": [ver_pur],
+    "review_length_words": [length],
+    "all_caps_ratio": [ratio],
+    "exclamation_count": [exclamation_count],
+    "repeated_phrases": [repeated],
+    "profile_photo": [pfp]
+})
+
+prediction = pipeline.predict(new_review)
+
+label_map = {
+    0: "Fake",
+    1: "Suspicious",
+    2: "Genuine"
+}
+
+print("Prediction:", label_map[prediction[0]],"Review")
+
+
