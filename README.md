@@ -167,5 +167,7 @@ Counter(review.lower().split())
 ---
 
 ## 👨‍💻 Author
-
+NAMIT SINGH
 Developed as a Machine Learning project for detecting fake and suspicious online reviews.
+
+
